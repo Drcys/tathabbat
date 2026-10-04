@@ -177,7 +177,8 @@ def _pieces(post: str) -> list[tuple[str, bool, bool]]:
         # Ayah numbers like ﴿45﴾ or (45) are not quotes.
         raw = re.sub(r"[﴿(\[{]\s*[0-9٠-٩۰-۹]+\s*[﴾)\]}]", " ", raw)
         quoted = [q for q in _QUOTED.findall(raw)
-                  if len(q.split()) >= 2 and not set(normalize(q).split()) <= _FORMULA]
+                  if len(q.split()) >= 2 and not set(normalize(q).split()) <= _FORMULA
+                  and not _SOURCE_LINE.match(q.strip(_STRIP))]   # "(رواه البخاري ومسلم)"
         if quoted:
             # Text inside quotation marks / Quran brackets is the claimed quote.
             for q in quoted:

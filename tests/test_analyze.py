@@ -62,3 +62,9 @@ def test_verified_texts_come_with_published_english_translation():
     assert translation.quran(13, 28).startswith("those who believe and whose hearts find tranquility")
     seg = analyze("قال ﷺ: «لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه»", use_dorar=False).checked[0]
     assert "None of you will have faith" in seg.hadith.matches[0].english
+
+
+def test_reference_in_brackets_is_not_checked_as_a_hadith():
+    post = 'عن عمر بن الخطاب رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: "إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى" (رواه البخاري ومسلم)'
+    segs = analyze(post, use_dorar=False).checked
+    assert len(segs) == 1 and segs[0].verdict == "ok"
