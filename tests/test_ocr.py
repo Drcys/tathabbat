@@ -130,3 +130,12 @@ def test_salutation_in_brackets_is_not_a_quote():
     segs = analyze("عن أبي هريرة (رضي الله عنه) قال: قال رسول الله (صلى الله عليه وسلم): «من غشنا فليس منا»",
                    use_dorar=False).checked
     assert len(segs) == 1 and segs[0].verdict == "ok"
+
+
+def test_tesseract_reading_that_skipped_a_line_is_not_kept():
+    from core.ocr import _same_reading
+    full = "اوصاني خليلي ان لا تشرك بالله شيئا ولا تترك صلاه مكتوبه متعمدا ولا تشرب الخمر فانها مفتاح كل شر"
+    skipped = "اوصاني خليلي ان لا تشرك بالله شيئا ولا تترك صلاه مكتوبه متعمدا"
+    assert not _same_reading(skipped, full)
+    assert _same_reading(full.replace("تشرك", "تشرك"), full)
+    assert _same_reading(full.replace("خليلي", "خليلى"), full)

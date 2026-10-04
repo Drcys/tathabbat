@@ -441,6 +441,17 @@ class Reading:
     uncertain: set[str] = field(default_factory=set)   # normalized words read with low confidence
 
 
+def _same_reading(local: str, vision: str) -> bool:
+    """Tesseract's reading is kept only if it has (almost) every word the
+    vision model read: a skipped line ("ولا تشرب الخمر فإنها مفتاح كل شر")
+    or a missing word must not pass, only a letter or two of difference."""
+    from rapidfuzz import fuzz
+    a, b = local.split(), vision.split()
+    if not b or abs(len(a) - len(b)) > max(1, len(b) // 20):
+        return False
+    return fuzz.ratio(local, vision) >= 90
+
+
 def read_image(image_bytes: bytes, mime: str = "image/png", gemini_key: str | None = None,
                claude_key: str | None = None) -> Reading:
     """Read the text of an image.
@@ -474,8 +485,7 @@ def read_image(image_bytes: bytes, mime: str = "image/png", gemini_key: str | No
             text = _tidy_vision(raw)
             if _arabic_words(text) < 1:
                 continue
-            if local and local.engine == "tesseract" and \
-                    fuzz.ratio(normalize(local.text), normalize(text)) >= 85:
+            if local and local.engine == "tesseract" and _same_reading(normalize(local.text), normalize(text)):
                 return local
             return Reading(text, engine)
         except Exception as exc:  # fall through to the next engine
