@@ -254,8 +254,15 @@ def hadith_card(seg) -> str:
     else:
         parts.append("<div>لم يُعثر على هذا النص في الكتب الستة (البخاري، مسلم، أبو داود، الترمذي، النسائي، ابن ماجه).</div>")
         if seg.dorar:
-            parts.append("<div style='margin-top:8px'>ما قاله أهل العلم (من الدرر السنية):</div>")
-            for e in seg.dorar[:3]:
+            match = seg.dorar_match
+            if match:
+                entries = [match] + [e for e in seg.dorar if e is not match][:2]
+                parts.append("<div style='margin-top:8px'>ما قاله أهل العلم (من الدرر السنية):</div>")
+            else:
+                entries = seg.dorar[:3]
+                parts.append("<div style='margin-top:8px'>لم نجد هذا اللفظ في الدرر السنية أيضاً. "
+                             "هذه أحاديث أخرى قريبة منه للاطلاع فقط، وحكمها لا ينطبق على النص المنشور:</div>")
+            for e in entries:
                 parts.append(
                     f'<div class="src">{escape(e.text[:250])}<br>'
                     f"<small>المحدث: {escape(e.scholar)} · المصدر: {escape(e.source)} {escape(e.number)}</small><br>"

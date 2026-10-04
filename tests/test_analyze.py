@@ -68,3 +68,24 @@ def test_reference_in_brackets_is_not_checked_as_a_hadith():
     post = 'عن عمر بن الخطاب رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: "إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى" (رواه البخاري ومسلم)'
     segs = analyze(post, use_dorar=False).checked
     assert len(segs) == 1 and segs[0].verdict == "ok"
+
+
+def test_dorar_grading_that_denies_the_hadith_is_not_called_authentic():
+    from core.analyze import dorar_rating
+    assert dorar_rating("رفعه إلى النبي صلى الله عليه وسلم ليس بصحيح") == "bad"
+    assert dorar_rating("ليس بحديث، لكن معناه صحيح") == "bad"
+    assert dorar_rating("ضعيف لا يصح") == "bad"
+    assert dorar_rating("لا أصل له") == "bad"
+    assert dorar_rating("صحيح") == "ok"
+    assert dorar_rating("إسناده حسن") == "ok"
+
+
+def test_dorar_result_with_other_wording_does_not_decide_the_verdict():
+    from core.analyze import Segment
+    from core.dorar import DorarEntry
+    from core.hadith import HadithResult
+    seg = Segment("hadith", "النظافة من الإيمان", hadith=HadithResult(status="not_found", input_text=""))
+    seg.dorar = [DorarEntry(text="الطهور شطر الإيمان", grade="صحيح")]
+    assert seg.verdict == "bad"
+    seg.dorar = [DorarEntry(text="النَّظافةُ مِن الإيمانِ .", grade="رفعه إلى النبي صلى الله عليه وسلم ليس بصحيح")]
+    assert seg.verdict == "bad" and seg.dorar_match is not None

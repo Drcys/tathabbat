@@ -124,6 +124,15 @@ class Segment:
         return bool(ws) and sum(w in self.uncertain for w in ws) / len(ws) >= 0.2
 
     @property
+    def dorar_match(self):
+        """The Dorar narration with the post's wording, if any."""
+        q = normalize(self.text)
+        if not self.dorar or len(q.split()) < 2:
+            return None
+        best = max(self.dorar, key=lambda e: fuzz.partial_ratio(q, normalize(e.text)))
+        return best if fuzz.partial_ratio(q, normalize(best.text)) >= 90 else None
+
+    @property
     def verdict(self) -> str:
         """One of: ok, warn, bad, neutral."""
         if self.kind == "quran":
@@ -143,16 +152,31 @@ class Segment:
                 # the claim is not established either.
                 return "bad" if self.hadith.matches[0].rating == "bad" else "warn"
             # Not in the six books: show what Dorar's scholars said, if
-            # reachable. The colour follows the scholar's grading words.
-            if not self.dorar:
+            # reachable. The colour follows the scholar's grading words, and
+            # only for a narration that has the same wording as the post:
+            # Dorar also returns related hadiths ("الطهور شطر الإيمان" for
+            # "النظافة من الإيمان"), whose grading says nothing about this text.
+            match = self.dorar_match
+            if match is None:
                 return "bad"
-            grade = normalize(self.dorar[0].grade)
-            if any(k in grade for k in ("موضوع", "باطل", "لا اصل", "ضعيف", "منكر", "كذب")):
-                return "bad"
-            if any(k in grade for k in ("صحيح", "حسن")):
-                return "ok"
-            return "warn"
+            return dorar_rating(match.grade)
         return "neutral"
+
+
+# A grading that denies the text is checked BEFORE the words "صحيح/حسن",
+# because the denial contains them: "ليس بصحيح"، "لا يصح"، "ليس بحديث، لكن معناه صحيح".
+_DENIED = ("ليس بصحيح", "ليس صحيح", "غير صحيح", "لا يصح", "لم يصح", "لا يثبت", "لم يثبت", "ليس بحديث",
+           "ليس حديث", "لا اصل", "ليس له اصل", "موضوع", "باطل", "ضعيف", "منكر", "كذب", "مكذوب", "لا يعرف")
+
+
+def dorar_rating(grade: str) -> str:
+    """Colour of a scholar's grading in Dorar: bad / ok / warn."""
+    g = normalize(grade)
+    if any(normalize(k) in g for k in _DENIED):
+        return "bad"
+    if any(k in g for k in ("صحيح", "حسن")):
+        return "ok"
+    return "warn"
 
 
 @dataclass
