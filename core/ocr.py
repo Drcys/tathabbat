@@ -41,6 +41,7 @@ _PROMPT = (
     "الفارسي، الرقعة) أو بخط اليد أو فوق صورة، وقد تتراكب الحروف فوق بعضها. "
     "اقرأ الحروف كما رُسمت فعلاً، ولا تكمل النص من حفظك ولا تصحح أي كلمة حتى لو بدت آية أو "
     "حديثاً فيه خطأ، فالمطلوب كشف الأخطاء لا إخفاؤها. إن لم تتبيّن كلمة فاكتب مكانها [؟]. "
+    "تجاهل أي كتابة غير عربية مثل أسماء المواقع والعلامات المائية. "
     "حافظ على ترتيب الأسطر من الأعلى إلى الأسفل، وأخرج النص فقط دون أي شرح أو علامات تنسيق."
 )
 VISION_ENGINES = ("claude", "gemini")
@@ -424,7 +425,10 @@ def _tidy_vision(text: str) -> str:
     """Remove formatting a model may add (code fences), and join lines that
     the image wrapped in the middle of a sentence: «(لا» / «يؤمن أحدكم…»."""
     text = re.sub(r"^```\w*\s*|\s*```$", "", text.strip())
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    # Website names and watermarks in Latin letters (ALBETAQA.SITE, @page) are
+    # not part of the post.
+    text = re.sub(r"(?<!\S)\S*[A-Za-z]\S*(?!\S)", "", text)
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
     out = []
     for line in lines:
         if out and not _LINE_END.search(out[-1]):

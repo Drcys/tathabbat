@@ -139,3 +139,8 @@ def test_tesseract_reading_that_skipped_a_line_is_not_kept():
     assert not _same_reading(skipped, full)
     assert _same_reading(full.replace("تشرك", "تشرك"), full)
     assert _same_reading(full.replace("خليلي", "خليلى"), full)
+
+
+def test_latin_watermark_is_dropped_from_vision_reading():
+    from core.ocr import _tidy_vision
+    assert _tidy_vision("ALBETAQA.SITE من وصايا الرسول.\nصحيح مسلم: 780") == "من وصايا الرسول.\nصحيح مسلم: 780"
