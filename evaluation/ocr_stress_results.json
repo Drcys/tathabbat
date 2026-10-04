@@ -1,0 +1,154 @@
+{
+ "total": {
+  "cautious": 135,
+  "vision": 233,
+  "correct": 417,
+  "missed": 11,
+  "wrong": 4
+ },
+ "images": 800,
+ "by_font": {
+  "Amiri": {
+   "cautious": 12,
+   "vision": 8,
+   "correct": 28,
+   "missed": 2
+  },
+  "ArefRuqaa": {
+   "vision": 50
+  },
+  "Blaka": {
+   "cautious": 24,
+   "vision": 25,
+   "wrong": 1
+  },
+  "Cairo": {
+   "correct": 39,
+   "cautious": 10,
+   "vision": 1
+  },
+  "ElMessiri": {
+   "correct": 39,
+   "cautious": 8,
+   "vision": 3
+  },
+  "Gulzar": {
+   "vision": 50
+  },
+  "Katibeh": {
+   "correct": 26,
+   "vision": 5,
+   "cautious": 19
+  },
+  "Lalezar": {
+   "cautious": 10,
+   "vision": 5,
+   "correct": 35
+  },
+  "Lateef": {
+   "correct": 41,
+   "vision": 6,
+   "cautious": 3
+  },
+  "MarkaziText": {
+   "correct": 39,
+   "vision": 3,
+   "cautious": 8
+  },
+  "NotoKufiArabic": {
+   "correct": 40,
+   "vision": 2,
+   "cautious": 8
+  },
+  "NotoNaskhArabic": {
+   "correct": 40,
+   "vision": 7,
+   "cautious": 3
+  },
+  "Rakkas": {
+   "vision": 32,
+   "cautious": 14,
+   "wrong": 3,
+   "missed": 1
+  },
+  "ReemKufi": {
+   "vision": 31,
+   "cautious": 10,
+   "missed": 7,
+   "correct": 2
+  },
+  "ScheherazadeNew": {
+   "correct": 42,
+   "vision": 2,
+   "cautious": 5,
+   "missed": 1
+  },
+  "Tajawal": {
+   "correct": 46,
+   "vision": 3,
+   "cautious": 1
+  }
+ },
+ "by_condition": {
+  "clean": {
+   "cautious": 25,
+   "vision": 42,
+   "correct": 92,
+   "missed": 1
+  },
+  "small": {
+   "cautious": 28,
+   "vision": 47,
+   "correct": 81,
+   "wrong": 1,
+   "missed": 3
+  },
+  "dark": {
+   "cautious": 19,
+   "vision": 43,
+   "missed": 4,
+   "correct": 93,
+   "wrong": 1
+  },
+  "photo": {
+   "cautious": 36,
+   "vision": 61,
+   "correct": 62,
+   "missed": 1
+  },
+  "jpeg_blur": {
+   "missed": 2,
+   "vision": 40,
+   "correct": 89,
+   "wrong": 2,
+   "cautious": 27
+  }
+ },
+ "wrong": [
+  [
+   "Blaka",
+   "jpeg_blur",
+   "قال الله تعالى: ﴿واستعينوا بالصبر والصلا",
+   "قال الله تقالى: (واستقبتوا بالصب والصلاة وإنها لكبيرة إلا على الحاشعين]"
+  ],
+  [
+   "Rakkas",
+   "small",
+   "قال تعالى: ﴿وقل رب زدني علما﴾",
+   "قال تعالى: (وقل رب زرفي علىا)"
+  ],
+  [
+   "Rakkas",
+   "dark",
+   "قال تعالى: ﴿وقل رب زدني علما﴾",
+   "قال تعالى: (وقل رب زوفي علما)"
+  ],
+  [
+   "Rakkas",
+   "jpeg_blur",
+   "قال تعالى: ﴿وقل رب زدني علما﴾",
+   "قال تعالى: (وقل رب زرفي علىا)"
+  ]
+ ],
+ "median_seconds": 1.2910297280000123
+}

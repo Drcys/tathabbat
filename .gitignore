@@ -1,0 +1,11 @@
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+.streamlit/secrets.toml
+input.txt
+result.txt
+hadith_input.txt
+hadith_result.txt
+pip
+*.kv

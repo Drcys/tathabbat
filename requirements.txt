@@ -1,0 +1,8 @@
+streamlit
+rapidfuzz
+numpy
+beautifulsoup4
+requests
+pillow
+google-genai
+pytest
