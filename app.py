@@ -90,6 +90,27 @@ def secret(name):
         return os.environ.get(name)
 
 
+@st.cache_resource
+def _reading_cache() -> dict:
+    return {}
+
+
+def cached_reading(data: bytes, mime: str, g_key, c_key):
+    """The same image is read once: saves the vision model's daily quota when
+    many people try the same example image. A reading made while the vision
+    model was unavailable is not kept, so it is retried later."""
+    cache = _reading_cache()
+    key = (hashlib.sha256(data).hexdigest(), bool(g_key), bool(c_key))
+    if key in cache:
+        return cache[key]
+    reading = read_image(data, mime, g_key, c_key)
+    if not reading.vision_problem:
+        if len(cache) > 300:
+            cache.clear()
+        cache[key] = reading
+    return reading
+
+
 ENGINE_NAMES = {"tesseract": "Tesseract", "claude": "نموذج الرؤية Claude", "gemini": "نموذج الرؤية Gemini"}
 
 
@@ -125,7 +146,8 @@ with tab_image:
                 st.session_state.engine = None
                 with st.spinner("جارٍ قراءة النص من الصورة…"):
                     try:
-                        reading = read_image(data, up.type or "image/png", g_key, c_key)
+                        reading = cached_reading(data, up.type or "image/png", g_key, c_key)
+                        st.session_state.vision_problem = reading.vision_problem
                         text, engine = reading.text, reading.engine
                         st.session_state.uncertain = reading.uncertain
                         st.session_state.engine = engine
@@ -136,6 +158,12 @@ with tab_image:
                         st.session_state.from_image = False
                         st.error("تعذّرت قراءة النص من الصورة. جرّب صورة أوضح أو الصق النص يدوياً.")
             engine = st.session_state.get("engine")
+            problem = st.session_state.get("vision_problem")
+            if problem == "quota":
+                st.info("نموذج الرؤية وصل حدّه المجاني لهذا اليوم، فقُرئت الصورة بالقارئ المحلي فقط. "
+                        "يعود تلقائياً لاحقاً، أو اكتب كلمة من الصورة أدناه.")
+            elif problem == "error":
+                st.info("تعذّر الوصول لنموذج الرؤية الآن، فقُرئت الصورة بالقارئ المحلي فقط. جرّب بعد قليل.")
             if engine == "tesseract-low":
                 st.warning("يبدو أن النص مكتوب بخط زخرفي أو بخط اليد، وقراءته الكاملة تحتاج نموذج الرؤية "
                            "(فعّله من «🔑 تفعيل قراءة الخطوط الزخرفية» أعلاه). أو اكتب أي كلمة تتبيّنها من الصورة "

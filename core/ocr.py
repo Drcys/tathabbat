@@ -29,8 +29,9 @@ from PIL import Image, ImageOps
 
 # Several model names per provider: if one is retired or not enabled for the
 # key, the next is tried. An environment variable puts a chosen model first.
-GEMINI_MODELS = [m for m in (os.environ.get("GEMINI_MODEL"), "gemini-2.5-flash", "gemini-flash-latest",
-                             "gemini-2.5-flash-lite", "gemini-2.0-flash") if m]
+# Each model has its own free daily quota, so when one is used up the next is tried.
+GEMINI_MODELS = [m for m in (os.environ.get("GEMINI_MODEL"), "gemini-2.5-flash", "gemini-2.5-flash-lite",
+                             "gemini-flash-latest", "gemini-2.0-flash") if m]
 CLAUDE_MODELS = [m for m in (os.environ.get("CLAUDE_MODEL"), "claude-sonnet-5", "claude-sonnet-4-5",
                              "claude-haiku-4-5-20251001") if m]
 # The Arabic Tesseract model ships with the project (tessdata_best, Apache-2.0),
@@ -135,11 +136,17 @@ def _gemini(image_bytes: bytes, mime: str, api_key: str) -> str:
             )
             return resp.text or ""
         except Exception as exc:
-            # Only a missing model moves on; a bad key or quota stops here.
-            if "404" not in str(exc) and "not found" not in str(exc).lower():
+            # A missing model or a used-up quota moves on to the next model;
+            # anything else (a wrong key) stops here.
+            if not (_is_quota(exc) or "404" in str(exc) or "not found" in str(exc).lower()):
                 raise
             error = exc
     raise error
+
+
+def _is_quota(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "resource_exhausted" in msg or "quota" in msg or "rate limit" in msg
 
 
 def _arabic_words(text: str) -> int:
@@ -443,6 +450,7 @@ class Reading:
     text: str
     engine: str                                   # tesseract, claude, gemini or tesseract-low
     uncertain: set[str] = field(default_factory=set)   # normalized words read with low confidence
+    vision_problem: str = ""   # "quota" or "error" when a configured vision model could not be used
 
 
 def _same_reading(local: str, vision: str) -> bool:
@@ -496,6 +504,11 @@ def read_image(image_bytes: bytes, mime: str = "image/png", gemini_key: str | No
             errors.append(f"{engine}: {exc}")
 
     if local and local.text:
+        if any(e in engines for e in VISION_ENGINES):
+            vision_errors = [e for e in errors if not e.startswith("tesseract")]
+            if vision_errors:
+                local.vision_problem = "quota" if any(
+                    k in e.lower() for e in vision_errors for k in ("429", "resource_exhausted", "quota")) else "error"
         return local
     raise RuntimeError("; ".join(errors) or "no OCR engine available")
 

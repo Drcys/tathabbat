@@ -144,3 +144,38 @@ def test_tesseract_reading_that_skipped_a_line_is_not_kept():
 def test_latin_watermark_is_dropped_from_vision_reading():
     from core.ocr import _tidy_vision
     assert _tidy_vision("ALBETAQA.SITE من وصايا الرسول.\nصحيح مسلم: 780") == "من وصايا الرسول.\nصحيح مسلم: 780"
+
+
+def test_gemini_quota_moves_to_the_next_model(monkeypatch):
+    import sys
+    import types as pytypes
+    from core import ocr
+    calls = []
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            if model == ocr.GEMINI_MODELS[0]:
+                raise RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")
+            return pytypes.SimpleNamespace(text="ألا بذكر الله تطمئن القلوب")
+
+    class Client:
+        def __init__(self, api_key): self.models = Models()
+
+    genai = pytypes.ModuleType("google.genai")
+    genai.Client = Client
+    gtypes = pytypes.ModuleType("google.genai.types")
+    gtypes.Part = pytypes.SimpleNamespace(from_bytes=lambda data, mime_type: None)
+    gtypes.GenerateContentConfig = lambda **k: None
+    genai.types = gtypes
+    monkeypatch.setitem(sys.modules, "google.genai", genai)
+    monkeypatch.setitem(sys.modules, "google.genai.types", gtypes)
+    assert ocr._gemini(CALLIGRAPHY.read_bytes(), "image/png", "k") == "ألا بذكر الله تطمئن القلوب"
+    assert calls[:2] == ocr.GEMINI_MODELS[:2]
+
+
+def test_quota_problem_is_reported_not_hidden(monkeypatch):
+    from core import ocr
+    monkeypatch.setattr(ocr, "_gemini", lambda *a: (_ for _ in ()).throw(RuntimeError("429 quota exceeded")))
+    r = ocr.read_image(CALLIGRAPHY.read_bytes(), "image/png", "k")
+    assert r.engine == "tesseract-low" and r.vision_problem == "quota"
