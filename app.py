@@ -11,6 +11,7 @@ import streamlit as st
 import hashlib
 import os
 
+from core import translation
 from core.analyze import analyze
 from core.ocr import available_engines, read_image
 from core.hadith import get_index as hadith_index
@@ -44,6 +45,9 @@ h1, h2, h3, p, li, label { text-align: right; }
          font-weight: 700; font-size: .85rem; background: var(--c); }
 .kind { color: #5b6180; font-size: .85rem; margin-inline-start: 8px; }
 .quote { font-size: 1.1rem; margin: 10px 0 6px; line-height: 1.9; }
+.en { direction: ltr; text-align: left; font-family: Georgia, 'Times New Roman', serif !important; font-size: .98rem;
+      line-height: 1.6; background: #f7f9fc; border-left: 4px solid #0f8b7a; border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
+.en small { display: block; color: #6b7280; font-family: 'IBM Plex Sans Arabic', sans-serif !important; font-size: .75rem; margin-top: 4px; }
 .mushaf { font-family: 'Amiri Quran', serif !important; font-size: 1.35rem; line-height: 2.3;
           background: #f6f7fb; border-radius: 10px; padding: 8px 14px; margin-top: 6px; }
 .ref { color: #0f8b7d; font-weight: 700; }
@@ -160,6 +164,7 @@ with tab_image:
 
 post = st.text_area("نص المنشور", key="post", height=180, placeholder="الصق نص المنشور هنا…")
 use_dorar = st.toggle("البحث الإضافي في الدرر السنية للأحاديث غير الموجودة في الكتب الستة", value=True)
+show_en = st.toggle("إظهار الترجمة الإنجليزية (للمعرّفين بالإسلام)", value=True)
 go = st.button("تحقّق", type="primary", use_container_width=True)
 
 LABELS = {
@@ -203,6 +208,7 @@ def quran_card(seg) -> str:
         parts.append('<div class="src">الفرق في حرف أو حرفين فقط، وقد يكون من قراءة الصورة لا من المنشور نفسه. '
                      "قارن الكلمة بالصورة، وصحّحها في المربع إن كانت قراءة خاطئة.</div>")
     parts.append(f'<div class="mushaf">{escape(q.correct_text)}</div>')
+    parts.append(english_block(translation.quran(q.surah, q.ayah_from, q.ayah_to), translation.QURAN_SOURCE))
     return "".join(parts)
 
 
@@ -217,7 +223,15 @@ def match_block(m) -> str:
     return (f'<div>المصدر: <span class="ref">{escape(m.book)}، رقم {escape(m.number)}</span></div>'
             f'<div>الحكم: <b>{escape(m.grade)}</b>'
             + (f' <small>({escape(m.grader)})</small>' if m.grader else "") + f"{note}</div>"
-            f'<div class="src">{escape(m.text[:400])}</div>')
+            f'<div class="src">{escape(m.text[:400])}</div>'
+            + english_block(m.english[:600] + ("…" if len(m.english) > 600 else ""), translation.HADITH_SOURCE))
+
+
+def english_block(text: str, source: str) -> str:
+    if not (show_en and text):
+        return ""
+    return f'<div class="en">{escape(text)}<small>English translation: {escape(source)}</small></div>'
+
 
 
 def hadith_card(seg) -> str:
@@ -281,6 +295,9 @@ if go and post.strip():
             with st.expander("نصوص عادية لم تُفحص"):
                 for t in plain:
                     st.write(t)
+    feedback = secret("FEEDBACK_URL")
+    if feedback:
+        st.link_button("📝 قيّم تجربتك (دقيقة واحدة)", feedback, use_container_width=True)
 
 st.markdown(
     '<div class="note">تثبَّت أداة مدعومة بالذكاء الاصطناعي وليست مفتياً ولا محدّثاً: لا تولّد نصاً شرعياً ولا تُصدر حكماً، '

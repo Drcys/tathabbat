@@ -36,6 +36,7 @@ from rapidfuzz import fuzz
 
 from .normalize import normalize
 
+from . import translation
 from .embeddings import WordVectors
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -135,6 +136,7 @@ class HadithMatch:
     grade: str = ""      # the scholar's grading, in Arabic
     grader: str = ""     # who gave it
     rating: str = "ok"   # ok / warn / bad, derived from the grading words
+    english: str = ""     # English translation of the hadith, if available
 
 
 @dataclass
@@ -173,6 +175,7 @@ class HadithIndex:
                         grade, grader, rating = "غير محكوم عليه في البيانات", "", "warn"
                 self.docs.append({
                     "book": title, "number": number, "text": h["text"], "norm": normalize(h["text"]),
+                    "key": key, "hnum": str(h["hadithnumber"]),
                     "sahihain": key in SAHIHAIN, "grade": grade, "grader": grader, "rating": rating,
                 })
 
@@ -285,7 +288,8 @@ class HadithIndex:
                 continue
             seen.add(key)
             matches.append(HadithMatch(d["book"], d["number"], score, _matn(d["text"]), coverage,
-                                       False, d["grade"], d["grader"], d["rating"]))
+                                       False, d["grade"], d["grader"], d["rating"],
+                                       english=translation.hadith(d["key"], d["hnum"])))
             if len(matches) == top:
                 break
 
@@ -310,7 +314,8 @@ class HadithIndex:
                 cov, i = sem
                 d = self.docs[i]
                 m = HadithMatch(d["book"], d["number"], round(fuzz.partial_ratio(q, d["norm"])), _matn(d["text"]),
-                                round(cov, 2), True, d["grade"], d["grader"], d["rating"])
+                                round(cov, 2), True, d["grade"], d["grader"], d["rating"],
+                                english=translation.hadith(d["key"], d["hnum"]))
                 status, matches = "similar", [m] + [x for x in matches if (x.book, x.number) != (m.book, m.number)]
         return HadithResult(status=status, input_text=text, matches=matches)
 

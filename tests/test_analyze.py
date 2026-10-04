@@ -55,3 +55,10 @@ def test_saying_attributed_to_the_quran_but_not_in_it_is_flagged():
     assert seg.kind == "quran" and seg.quran.status == "not_found" and seg.verdict == "bad"
     seg = analyze("قال الله تعالى: ﴿ادعوني أستجب لكم إن الله غفور رحيم﴾", use_dorar=False).checked[0]
     assert seg.verdict == "bad" and seg.quran.surah == 40
+
+
+def test_verified_texts_come_with_published_english_translation():
+    from core import translation
+    assert translation.quran(13, 28).startswith("those who believe and whose hearts find tranquility")
+    seg = analyze("قال ﷺ: «لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه»", use_dorar=False).checked[0]
+    assert "None of you will have faith" in seg.hadith.matches[0].english
