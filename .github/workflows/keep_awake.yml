@@ -1,0 +1,37 @@
+# Keeps the live site awake for judges and users: Streamlit Community Cloud
+# puts a free app to sleep when nobody visits it for a while, and the first
+# visitor then waits for it to wake. This opens the site in a real browser
+# every 4 hours and presses the wake-up button if the app is asleep.
+name: keep-awake
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install playwright && playwright install --with-deps chromium
+      - name: Open the site and wake it if needed
+        run: |
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          URL = "https://tathabbat.streamlit.app/"
+          with sync_playwright() as p:
+              page = p.chromium.launch().new_page()
+              page.goto(URL, timeout=120_000)
+              page.wait_for_timeout(8_000)
+              wake = page.get_by_role("button", name="Yes, get this app back up!")
+              if wake.count():
+                  print("app was asleep: waking it")
+                  wake.first.click()
+                  page.wait_for_timeout(90_000)
+              else:
+                  print("app is awake")
+          PY
