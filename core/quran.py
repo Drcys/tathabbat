@@ -204,7 +204,8 @@ class QuranIndex:
         last_loc = L.loc[lo + w_last - 1]
         surah = first_loc[0]
         ayat = range(first_loc[1], last_loc[1] + 1) if last_loc[0] == surah else [first_loc[1]]
-        correct_text = " ".join(self.uthmani[(surah, a)] + f" ﴿{a}﴾" for a in ayat)
+        # (the data splits the tanween alif off its word: "عِلۡمࣰ ا"; joined for display)
+        correct_text = " ".join(_OPEN_TANWEEN_GAP.sub(r"\1", self.uthmani[(surah, a)]) + f" ﴿{a}﴾" for a in ayat)
 
         return QuranResult(
             status="altered" if diffs else "verified",

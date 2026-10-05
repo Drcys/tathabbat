@@ -89,3 +89,26 @@ def test_dorar_result_with_other_wording_does_not_decide_the_verdict():
     assert seg.verdict == "bad"
     seg.dorar = [DorarEntry(text="النَّظافةُ مِن الإيمانِ .", grade="رفعه إلى النبي صلى الله عليه وسلم ليس بصحيح")]
     assert seg.verdict == "bad" and seg.dorar_match is not None
+
+
+def test_scholars_who_differ_on_the_same_words_give_check_not_a_verdict():
+    from core.analyze import Segment
+    from core.dorar import DorarEntry
+    from core.hadith import HadithResult
+    seg = Segment("hadith", "الجنة تحت أقدام الأمهات", hadith=HadithResult(status="not_found", input_text=""))
+    seg.dorar = [DorarEntry(text="الجنة تحت أقدام الأمهات", grade="منكر"),
+                 DorarEntry(text="الجنة تحت أقدام الأمهات", grade="صحيح")]
+    assert seg.verdict == "warn" and seg.scholars_differ
+    seg.dorar = [DorarEntry(text="الجنة تحت أقدام الأمهات", grade="منكر"),
+                 DorarEntry(text="الجنة تحت أقدام الأمهات", grade="موضوع")]
+    assert seg.verdict == "bad" and not seg.scholars_differ
+
+
+def test_nearest_ayah_needs_most_of_the_words():
+    seg = analyze("قال الله تعالى: «العلم نور يقذفه الله في القلب»", use_dorar=False).checked[0]
+    assert seg.quran.status == "not_found" and seg.nearest is None
+
+
+def test_ayah_display_keeps_tanween_alif_attached():
+    seg = analyze("قال تعالى: ﴿وقل رب زدني علما﴾", use_dorar=False).checked[0]
+    assert "ࣰ ا" not in seg.quran.correct_text

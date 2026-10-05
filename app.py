@@ -284,8 +284,12 @@ def hadith_card(seg) -> str:
         if seg.dorar:
             match = seg.dorar_match
             if match:
-                entries = [match] + [e for e in seg.dorar if e is not match][:2]
+                same = seg.dorar_matches
+                entries = (same + [e for e in seg.dorar if e not in same])[:3]
                 parts.append("<div style='margin-top:8px'>ما قاله أهل العلم (من الدرر السنية):</div>")
+                if seg.scholars_differ:
+                    parts.append("<div class='diff'>اختلف أهل العلم في الحكم على هذا اللفظ، وهذه أقوالهم منسوبة إليهم. "
+                                 "ولم يُعثر عليه في الكتب الستة. لا تنشره منسوباً إلى النبي ﷺ قبل سؤال مختص.</div>")
             else:
                 entries = seg.dorar[:3]
                 parts.append("<div style='margin-top:8px'>لم نجد هذا اللفظ في الدرر السنية أيضاً. "

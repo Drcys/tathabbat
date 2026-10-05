@@ -124,13 +124,23 @@ class Segment:
         return bool(ws) and sum(w in self.uncertain for w in ws) / len(ws) >= 0.2
 
     @property
-    def dorar_match(self):
-        """The Dorar narration with the post's wording, if any."""
+    def dorar_matches(self) -> list:
+        """The Dorar narrations with the post's wording (all of them: several
+        scholars may have graded the same words)."""
         q = normalize(self.text)
         if not self.dorar or len(q.split()) < 2:
-            return None
-        best = max(self.dorar, key=lambda e: fuzz.partial_ratio(q, normalize(e.text)))
-        return best if fuzz.partial_ratio(q, normalize(best.text)) >= 90 else None
+            return []
+        return [e for e in self.dorar if fuzz.partial_ratio(q, normalize(e.text)) >= 90]
+
+    @property
+    def dorar_match(self):
+        found = self.dorar_matches
+        return found[0] if found else None
+
+    @property
+    def scholars_differ(self) -> bool:
+        """Scholars in Dorar graded these same words differently."""
+        return len({dorar_rating(e.grade) for e in self.dorar_matches} - {"warn"}) > 1
 
     @property
     def verdict(self) -> str:
@@ -156,10 +166,16 @@ class Segment:
             # only for a narration that has the same wording as the post:
             # Dorar also returns related hadiths ("الطهور شطر الإيمان" for
             # "النظافة من الإيمان"), whose grading says nothing about this text.
-            match = self.dorar_match
-            if match is None:
+            found = self.dorar_matches
+            if not found:
                 return "bad"
-            return dorar_rating(match.grade)
+            ratings = {dorar_rating(e.grade) for e in found}
+            if ratings == {"ok"}:
+                return "ok"
+            if ratings <= {"bad", "warn"} and "bad" in ratings:
+                return "bad"
+            # the scholars differ: show their words, the tool does not choose
+            return "warn"
         return "neutral"
 
 
@@ -237,6 +253,15 @@ def _fix_misread_intro(post: str) -> str:
     return _INTRO_WORD.sub(fix, post)
 
 
+_COMMON = {"الله", "الذي", "التي", "الذين", "على", "الي", "عن", "في", "من", "ما", "لا", "ان"}
+
+
+def _shares_most_words(text: str, ayah: str) -> bool:
+    words = [w for w in normalize(text).split() if len(w) >= 3 and w not in _COMMON]
+    ayah_words = set(normalize(ayah).split())
+    return len(words) >= 2 and sum(w in ayah_words for w in words) >= 0.6 * len(words)
+
+
 def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
             uncertain: set[str] | frozenset = frozenset()) -> Report:
     """Check every ayah and hadith in a post. For text read from an image,
@@ -298,7 +323,9 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
             if q.status not in ("verified", "altered"):
                 q.status = "not_found"
                 near = q_idx.search_fragment(text, top=1)
-                if near and near[0]["words_found"] >= 2:
+                # only an ayah that shares most of the meaningful words, not
+                # just "الله" and "في" (counted exactly, not by similarity)
+                if near and _shares_most_words(text, near[0]["text"]):
                     seg.nearest = near[0]
             # (a loose match is shown with its differences: part of an ayah
             # with words added to it)
