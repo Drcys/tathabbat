@@ -102,7 +102,7 @@ streamlit run app.py
 | نص القرآن (رواية حفص، بالرسمين الإملائي والعثماني) | [`fawazahmed0/quran-api`](https://github.com/fawazahmed0/quran-api) | ملكية عامة (Unlicense) |
 | الكتب الستة وأحكام الشيخ الألباني على السنن الأربع | [`fawazahmed0/hadith-api`](https://github.com/fawazahmed0/hadith-api) | ملكية عامة (Unlicense) |
 | بحث إضافي في الحديث | [الدرر السنية](https://dorar.net) | استخدام عبر البحث العام والروابط |
-| الترجمة الإنجليزية للقرآن | مركز رواد الترجمة، [QuranEnc.com](https://quranenc.com)، عبر quran-api | إعادة النشر مسموحة بشروط الموقع: دون تعديل، مع ذكر المصدر |
+| الترجمة الإنجليزية للقرآن | مركز رواد الترجمة ([english_rwwad](https://quranenc.com/en/browse/english_rwwad)) من [QuranEnc.com](https://quranenc.com)، نُسخت عبر quran-api. الإصدار الحالي في QuranEnc هو **V1.0.19 (12/03/2026)**، ونسختنا قد تكون من إصدار أقدم للترجمة نفسها (وجدنا فرقاً في صياغة آية واحدة على الأقل)، فتُحدَّث إلى V1.0.19 من QuranEnc مباشرة قبل أي إطلاق عام | إعادة النشر مسموحة بشروط الموقع: دون تعديل، مع ذكر المصدر والإصدار |
 | الترجمة الإنجليزية للأحاديث | الطبعات الإنجليزية للكتب الستة عبر `fawazahmed0/hadith-api` | ملكية عامة (Unlicense) للمستودع، والترجمات لمترجميها |
 | أسماء السور | مكتوبة يدوياً | — |
 | قراءة الصور | [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) والنموذج العربي؛ ونموذجا الرؤية Claude (Anthropic API) وGoogle Gemini للخطوط الزخرفية | Apache-2.0 / شروط Anthropic وGoogle |
