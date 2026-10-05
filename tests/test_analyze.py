@@ -127,3 +127,23 @@ def test_ayah_presented_as_the_prophets_saying_is_flagged():
 def test_hadith_qudsi_said_by_allah_is_not_called_misattributed():
     seg = analyze("قال الله تعالى: «أنا عند ظن عبدي بي، وأنا معه إذا ذكرني»", use_dorar=False).checked[0]
     assert seg.kind == "hadith" and not seg.misattributed and seg.verdict == "ok"
+
+
+def test_ordinary_dua_that_resembles_a_weak_hadith_is_not_flagged():
+    post = "قال رسول الله ﷺ: «خير الأسماء ما حمد وعبد»\nاللهم اجعلنا من أهلها"
+    assert len(analyze(post, use_dorar=False).checked) == 1
+
+
+def test_hadith_mentioning_allah_presented_as_ayah_is_still_flagged():
+    seg = analyze("قال تعالى: ﴿إن الله حرم عليكم عقوق الأمهات ووأد البنات ومنعا وهات﴾", use_dorar=False).checked[0]
+    assert seg.kind == "hadith" and seg.misattributed == "hadith_as_quran"
+
+
+def test_uthmani_quote_cut_after_open_tanween_is_verified():
+    seg = analyze("قال تعالى: ﴿إِنَّكَ لَن تَخۡرِقَ ٱلۡأَرۡضَ وَلَن تَبۡلُغَ ٱلۡجِبَالَ طُولࣰ﴾", use_dorar=False).checked[0]
+    assert seg.verdict == "ok"
+
+
+def test_word_containing_nabi_is_not_an_attribution_to_the_prophet():
+    seg = analyze("يقول الله عز وجل: ولا يأمركم أن تتخذوا الملائكة والنبيين أربابا", use_dorar=False).checked[0]
+    assert seg.kind == "quran" and seg.verdict == "ok" and seg.text.startswith("ولا يأمركم")

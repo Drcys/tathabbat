@@ -38,15 +38,15 @@ _QURAN_INTRO = re.compile(
 )
 _HADITH_INTRO = re.compile(
     r"^(?:و)?(?:عن\s+\S+(?:\s+\S+)?\s+(?:رضي\s+الله\s+عنه(?:ا|ما|م)?\s+)?(?:قال|أن|ان)\s+)?"
-    r"(?:قال|يقول|أن|ان)\s+(?:رسول\s+الله|النبي|المصطفى|الحبيب)\s*"
+    r"(?:قال|يقول|أن|ان)\s+(?:رسول\s+الله|النبي(?![\u0621-\u064A])|المصطفى|الحبيب)\s*"
     r"(?:ﷺ|صلى\s+الله\s+عليه\s+وسلم|عليه\s+الصلاة\s+والسلام)?\s*[:：]?\s*"
 )
 # Everything up to the Prophet's name/salutation (and a following "قال") is
 # the chain or the introduction, not the claimed words.
 _HADITH_LEAD = re.compile(
-    r"^.*(?:ﷺ|صلى\s+الله\s+عليه\s+وسلم|عليه\s+الصلاة\s+والسلام|رسول\s+الله|النبي)\s*(?:أنه\s+)?(?:قال|يقول)?\s*:?\s*"
+    r"^.*(?:ﷺ|صلى\s+الله\s+عليه\s+وسلم|عليه\s+الصلاة\s+والسلام|رسول\s+الله|النبي(?![\u0621-\u064A]))\s*(?:أنه\s+)?(?:قال|يقول)?\s*:?\s*"
 )
-_PROPHET = r"(?:ﷺ|صلى\s+الله\s+عليه\s+وسلم|رسول\s+الله|النبي|المصطفى|عليه\s+الصلاة\s+والسلام)"
+_PROPHET = r"(?:ﷺ|صلى\s+الله\s+عليه\s+وسلم|رسول\s+الله|النبي(?![\u0621-\u064A])|المصطفى|عليه\s+الصلاة\s+والسلام)"
 # The text is *attributed* to the Prophet (said / narrated / "hadith"), not
 # just mentions him ("لا تنسوا الصلاة على النبي ﷺ" is not a hadith).
 _HADITH_MARKERS = re.compile(
@@ -258,7 +258,9 @@ def _fix_misread_intro(post: str) -> str:
     return _INTRO_WORD.sub(fix, post)
 
 
-_QUDSI = re.compile(r"(?:قال|يقول) الله|ربكم|ربه عز وجل|عز وجل")
+# A hadith qudsi says so in its text: "قال الله عز وجل"، "يقول ربكم". A mere
+# mention of Allah ("إن الله عز وجل حرم عليكم…") does not make it one.
+_QUDSI = re.compile(r"(?:قال|يقول) (?:الله|ربكم|ربك|ربه|ربنا)")
 
 _COMMON = {"الله", "الذي", "التي", "الذين", "على", "الي", "عن", "في", "من", "ما", "لا", "ان"}
 
@@ -316,7 +318,14 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
         # Search by meaning only for text attributed to the Prophet ﷺ: ordinary
         # sentences must not be matched to a hadith just because they are similar.
         h = h_idx.search(text, by_meaning=marked)
-        if h.status in ("found", "similar") or (marked and h.status == "not_found"):
+        # Text NOT attributed to the Prophet ﷺ is shown as a hadith only when
+        # its exact wording is in the books: a dua like "اللهم اجعلنا من أهلها"
+        # merely resembles some hadith and must not get a hadith's grading.
+        if marked or as_quran:
+            is_hadith = h.status in ("found", "similar") or marked
+        else:
+            is_hadith = h.status == "found"
+        if is_hadith:
             seg = Segment("hadith", text, hadith=h, from_image=from_image, uncertain=uncertain)
             # A hadith presented as an ayah ("قال الله تعالى: ﴿إنما الأعمال بالنيات﴾").
             # Not for a hadith qudsi, whose words are Allah's and say so.

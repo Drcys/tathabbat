@@ -15,6 +15,7 @@ _DIACRITICS = re.compile("[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640\u
 # after the other open tanween marks a space is a real word boundary (بَرَآءَةࣱ مِّنَ).
 _OPEN_TANWEEN_GAP = re.compile("(\u08F0)\\s+(?=[\u0627\u0649](?:[^\u0621-\u064A\u0671]|$))")
 # Anything that is not an Arabic letter or a space (digits, punctuation, ﴿﴾ …).
+_ORPHAN_TANWEEN = re.compile("\u08F0(?=[^\u0627\u0649\u0621-\u064A]|$)")
 _NON_LETTERS = re.compile("[^\u0621-\u064A\\s]")
 _SPACES = re.compile(r"\s+")
 # "و" is never a word on its own; a space after it (و استعينوا) is a typing or
@@ -38,6 +39,9 @@ def normalize(text: str, uthmani: bool = False) -> str:
     text = _OPEN_TANWEEN_GAP.sub(r"\1", text)
     if uthmani:
         text = text.replace("\u0670", "ا")
+        # A quote cut right after the open fathatan (…طُولࣰ) has lost its tanween
+        # alif, which the data writes as a separate token: restore it.
+        text = _ORPHAN_TANWEEN.sub("\u08F0ا", text)
     text = _DIACRITICS.sub("", text)
     text = text.translate(_LETTER_MAP)
     text = _NON_LETTERS.sub(" ", text)
