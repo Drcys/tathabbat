@@ -112,3 +112,18 @@ def test_nearest_ayah_needs_most_of_the_words():
 def test_ayah_display_keeps_tanween_alif_attached():
     seg = analyze("قال تعالى: ﴿وقل رب زدني علما﴾", use_dorar=False).checked[0]
     assert "ࣰ ا" not in seg.quran.correct_text
+
+
+def test_hadith_presented_as_an_ayah_is_flagged():
+    seg = analyze("قال الله تعالى: ﴿إنما الأعمال بالنيات﴾", use_dorar=False).checked[0]
+    assert seg.kind == "hadith" and seg.misattributed == "hadith_as_quran" and seg.verdict == "bad"
+
+
+def test_ayah_presented_as_the_prophets_saying_is_flagged():
+    seg = analyze("قال رسول الله ﷺ: «إن الله مع الصابرين»", use_dorar=False).checked[0]
+    assert seg.kind == "quran" and seg.misattributed == "quran_as_hadith" and seg.verdict == "warn"
+
+
+def test_hadith_qudsi_said_by_allah_is_not_called_misattributed():
+    seg = analyze("قال الله تعالى: «أنا عند ظن عبدي بي، وأنا معه إذا ذكرني»", use_dorar=False).checked[0]
+    assert seg.kind == "hadith" and not seg.misattributed and seg.verdict == "ok"

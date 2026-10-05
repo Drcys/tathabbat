@@ -78,6 +78,7 @@ class Segment:
     from_image: bool = False
     uncertain: frozenset = frozenset()    # words the OCR read with low confidence
     nearest: dict | None = None           # for text attributed to the Quran but not in it
+    misattributed: str = ""               # "quran_as_hadith" or "hadith_as_quran"
 
     def _unsure(self, text: str) -> bool:
         return bool(set(normalize(text).split()) & self.uncertain)
@@ -145,6 +146,10 @@ class Segment:
     @property
     def verdict(self) -> str:
         """One of: ok, warn, bad, neutral."""
+        if self.misattributed == "hadith_as_quran":
+            return "bad"          # presenting a saying as the Quran is the error
+        if self.misattributed == "quran_as_hadith":
+            return "warn"         # the words are right, the attribution is not
         if self.kind == "quran":
             if self.quran.status == "verified":
                 return "ok"
@@ -253,6 +258,8 @@ def _fix_misread_intro(post: str) -> str:
     return _INTRO_WORD.sub(fix, post)
 
 
+_QUDSI = re.compile(r"(?:قال|يقول) الله|ربكم|ربه عز وجل|عز وجل")
+
 _COMMON = {"الله", "الذي", "التي", "الذين", "على", "الي", "عن", "في", "من", "ما", "لا", "ان"}
 
 
@@ -299,7 +306,11 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
             if q.status in ("verified", "altered") and q.match_ratio >= min_ratio and (
                     as_quran or q.status == "verified" or q.match_ratio >= QURAN_UNMARKED_RATIO
                     or q.longest_run >= QURAN_UNMARKED_RUN):
-                report.segments.append(Segment("quran", text, quran=q, from_image=from_image, uncertain=uncertain))
+                seg = Segment("quran", text, quran=q, from_image=from_image, uncertain=uncertain)
+                # An ayah presented as the Prophet's ﷺ saying ("قال رسول الله ﷺ: إن الله مع الصابرين")
+                if marked and not as_quran and q.status == "verified":
+                    seg.misattributed = "quran_as_hadith"
+                report.segments.append(seg)
                 continue
 
         # Search by meaning only for text attributed to the Prophet ﷺ: ordinary
@@ -307,6 +318,11 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
         h = h_idx.search(text, by_meaning=marked)
         if h.status in ("found", "similar") or (marked and h.status == "not_found"):
             seg = Segment("hadith", text, hadith=h, from_image=from_image, uncertain=uncertain)
+            # A hadith presented as an ayah ("قال الله تعالى: ﴿إنما الأعمال بالنيات﴾").
+            # Not for a hadith qudsi, whose words are Allah's and say so.
+            if as_quran and not marked and h.status in ("found", "similar") and \
+                    not _QUDSI.search(normalize(h.matches[0].text)):
+                seg.misattributed = "hadith_as_quran"
             if h.status != "found" and use_dorar:
                 entries = dorar.lookup(text)
                 seg.dorar_error = entries is None

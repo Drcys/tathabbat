@@ -207,12 +207,31 @@ KIND = {"quran": "قرآن كريم", "hadith": "حديث"}
 
 
 def label(seg) -> str:
+    if seg.misattributed == "hadith_as_quran":
+        return "حديث نُسب للقرآن"
+    if seg.misattributed == "quran_as_hadith":
+        return "آية نُسبت للنبي ﷺ"
     if seg.kind == "quran" and seg.quran.status == "not_found":
         return "ليست آية بهذا اللفظ" if seg.verdict == "bad" else "تحقق من القراءة"
     return LABELS[(seg.kind, seg.verdict)]
 
 
+MISATTRIBUTED = {
+    "hadith_as_quran": "<div class='diff'>هذا <b>ليس آية</b>. نُسب في المنشور إلى القرآن، وهو حديث نبوي، "
+                       "وتجد مصدره أدناه. لا تنشره على أنه آية.</div>",
+    "quran_as_hadith": "<div class='diff'>هذا نص <b>قرآني</b> صحيح، لكن المنشور نسبه إلى النبي ﷺ. "
+                       "الصواب أن يُقال: قال الله تعالى.</div>",
+}
+
+
 def quran_card(seg) -> str:
+    q = seg.quran
+    if seg.misattributed:
+        return MISATTRIBUTED[seg.misattributed] + _quran_card(seg)
+    return _quran_card(seg)
+
+
+def _quran_card(seg) -> str:
     q = seg.quran
     if q.status == "not_found":
         parts = [f'<div class="quote">{escape(seg.text)}</div>',
@@ -265,6 +284,8 @@ def english_block(text: str, source: str) -> str:
 def hadith_card(seg) -> str:
     h = seg.hadith
     parts = [f'<div class="quote">«{escape(seg.text)}»</div>']
+    if seg.misattributed:
+        parts.append(MISATTRIBUTED[seg.misattributed])
     if seg.reading_doubtful and h.status != "found":
         parts.append("<div class='diff'>بعض كلمات هذا النص قُرئت من الصورة بثقة منخفضة، فقد يكون عدم العثور عليه "
                      "بسبب القراءة. صحّح النص في المربع أعلاه ثم أعد التحقق.</div>")
