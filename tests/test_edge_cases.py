@@ -81,3 +81,32 @@ def test_blank_image_is_not_read_as_text():
     except RuntimeError:
         return
     assert engine == "tesseract-low" or not analyze(text, use_dorar=False).checked
+
+
+@pytest.mark.parametrize("post", [
+    "قال تعالی: ﴿واستعينوا بالصبر والصلاة﴾",                 # Persian ya
+    "قـال الله تعالى: ﴿واستعينوا بالصـبر والصلاة﴾",          # tatweel
+    "قال اللّه تعالى: ﴿واستعينوا بالصبر والصلاة﴾",            # shadda in "الله"
+])
+def test_typing_variants_of_an_intro_still_verify(post):
+    [seg] = analyze(post, use_dorar=False).checked
+    assert (seg.kind, seg.verdict) == ("quran", "ok")
+
+
+@pytest.mark.parametrize("intro", ["قال رسول الله صلي الله عليه وسلم", "قال رسول الله صل الله عليه وسلم",
+                                   "قال رسول الله صلى الله عليه و سلم", "قال رسول اللہ ﷺ"])
+def test_typing_variants_of_the_salutation_still_mark_a_hadith(intro):
+    [seg] = analyze(intro + ": «إنما الأعمال بالنيات»", use_dorar=False).checked
+    assert (seg.kind, seg.verdict) == ("hadith", "ok")
+
+
+def test_two_items_on_one_line_keep_their_own_attribution():
+    post = "قال تعالى: ﴿واستعينوا بالصبر والصلاة﴾ وقال ﷺ: «إنما الأعمال بالنيات»"
+    got = [(s.kind, s.verdict, s.misattributed) for s in analyze(post, use_dorar=False).checked]
+    assert got == [("quran", "ok", ""), ("hadith", "ok", "")]
+
+
+def test_unquoted_hadith_before_a_source_and_an_ayah_on_the_same_line():
+    post = "عن النبي ﷺ أنه قال: إنما الأعمال بالنيات (متفق عليه) قال تعالى: ﴿واستعينوا بالصبر والصلاة﴾"
+    got = [(s.kind, s.verdict) for s in analyze(post, use_dorar=False).checked]
+    assert got == [("hadith", "ok"), ("quran", "ok")]

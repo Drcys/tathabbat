@@ -36,6 +36,10 @@ _GLORY = r"(?:تعال[ىيلا]{0,2}|سبحانه(?:\s+وتعالى)?|عز\s+و
 _QURAN_INTRO = re.compile(
     r"^(?:و)?(?:قال|يقول|قوله)\s+(?:(?:الله|ربنا|الحق|المولى)(?:\s+" + _GLORY + r")?|" + _GLORY + r")\s*[:：]?\s*"
 )
+# The same intro anywhere before a quote on its line.
+_QURAN_SAID = re.compile(
+    r"(?<![ء-ي])و?(?:قال|يقول|قوله)\s+(?:(?:الله|ربنا|الحق|المولى)(?![ء-ي])|" + _GLORY + r")"
+)
 _HADITH_INTRO = re.compile(
     r"^(?:و)?(?:عن\s+\S+(?:\s+\S+)?\s+(?:رضي\s+الله\s+عنه(?:ا|ما|م)?\s+)?(?:قال|أن|ان)\s+)?"
     r"(?:قال|يقول|أن|ان)\s+(?:رسول\s+الله|النبي(?![\u0621-\u064A])|المصطفى|الحبيب)\s*"
@@ -105,6 +109,9 @@ class Segment:
         def explained(d):
             written, correct = d.written.split(), d.correct.split()
             if d.kind == "replace":
+                # a space lost or added by the reading: "أوما" for "أو ما"
+                if normalize("".join(written)) == normalize("".join(correct), uthmani=True):
+                    return True
                 if len(written) == len(correct):
                     return all(word_explained(w, c) for w, c in zip(written, correct))
                 return all(normalize(w) in self.uncertain or normalize(w) in ayah_words for w in written)
@@ -119,10 +126,24 @@ class Segment:
     def reading_doubtful(self) -> bool:
         """A hadith read from an image where many words were uncertain: a
         "not found" may be the reading's fault, not the text's."""
-        if not (self.from_image and self.uncertain):
+        if not self.from_image:
             return False
         ws = normalize(self.text).split()
-        return bool(ws) and sum(w in self.uncertain for w in ws) / len(ws) >= 0.2
+        if self.uncertain and ws and sum(w in self.uncertain for w in ws) / len(ws) >= 0.2:
+            return True
+        # A word one letter away from a word of the closest hadith ("تدركيم"
+        # for "تدركهم"), or two of its words read as one ("غيربينة"): a
+        # misreading, so the reading is in doubt, not the hadith.
+        if self.hadith and self.hadith.matches and self.hadith.matches[0].score >= 80:
+            top = normalize(self.hadith.matches[0].text).split()
+            top_set, glued = set(top), {a + b for a, b in zip(top, top[1:])}
+            for w in ws:
+                if w in top_set or len(w) < 3:
+                    continue
+                if w in glued or any(abs(len(t) - len(w)) <= 1 and Levenshtein.distance(w, t) == 1
+                                     for t in top_set):
+                    return True
+        return False
 
     @property
     def dorar_matches(self) -> list:
@@ -209,6 +230,19 @@ class Report:
         return [s for s in self.segments if s.kind != "text"]
 
 
+# A salutation or "رضي الله عنه" in brackets, also as an image reads it
+# ("(صل الله عليه وسل)"، "(صلى انه عليه وسلم)"، "الله عنه)").
+_FORMULA_IN_BRACKETS = re.compile(
+    r"[(\[]?\s*(?:صل[ىي]?|رضي?)\s+\S+\s+(?:عليه(?:\s+وس\S*)?|عنه(?:ما|م|ا)?)\s*[)\]]"
+    r"|[(\[]\s*(?:صل[ىي]?|رضي?)\s+\S+\s+(?:عليه(?:\s+وس\S*)?|عنه(?:ما|م|ا)?)\s*[)\]]?"
+    r"|(?<=\s)الله\s+عنه(?:ما|م|ا)?\s*[)\]]"
+)
+# "… رواه مسلم" / "(متفق عليه)" after an unquoted hadith names its source.
+_TRAILING_SOURCE = re.compile(r"\s+[(\[]?\s*(?:رواه|أخرجه|اخرجه|متفق\s+عليه)(?:\s+[^\s()]+){0,5}\s*[)\]]?\s*$")
+# A quote cut right after an open tanween (…إِذࣰ ا) can start with its lone alif.
+_LONE_ALIF = re.compile("^[اى][ً-ْۖ-ۭ]*\\s+")
+
+
 def _pieces(post: str) -> list[tuple[str, bool, bool]]:
     """Split a post into (text, presented_as_hadith, presented_as_quran) pieces."""
     pieces = []
@@ -221,23 +255,51 @@ def _pieces(post: str) -> list[tuple[str, bool, bool]]:
         as_quran = "﴿" in raw or bool(_QURAN_INTRO.match(raw.strip(_STRIP)))
         # Ayah numbers like ﴿45﴾ or (45) are not quotes.
         raw = re.sub(r"[﴿(\[{]\s*[0-9٠-٩۰-۹]+\s*[﴾)\]}]", " ", raw)
-        quoted = [q for q in _QUOTED.findall(raw)
-                  if len(q.split()) >= 2 and not set(normalize(q).split()) <= _FORMULA
-                  and not _SOURCE_LINE.match(q.strip(_STRIP))]   # "(رواه البخاري ومسلم)"
+        quoted = [m for m in _QUOTED.finditer(raw)
+                  if len(m.group(1).split()) >= 2 and not set(normalize(m.group(1)).split()) <= _FORMULA
+                  and not _FORMULA_IN_BRACKETS.fullmatch(m.group(0).strip())
+                  and not _SOURCE_LINE.match(m.group(1).strip(_STRIP))]   # "(رواه البخاري ومسلم)"
         if quoted:
             # Text inside quotation marks / Quran brackets is the claimed quote.
-            for q in quoted:
-                pieces.append((q.strip(_STRIP), marked, as_quran))
+            # With several quotes on one line, each takes how it is presented
+            # from the words right before it, not from the whole line:
+            # «قال تعالى: ﴿…﴾ وقال ﷺ: «…»» holds an ayah and then a hadith.
+            start = 0
+            q_marked, q_quran = (marked, as_quran) if len(quoted) == 1 else (False, False)
+            for m in quoted:
+                inner = m.group(1)
+                q_begin = m.start()
+                # "«من رسول الله ﷺ: «من حسن إسلام…»": a quote opened twice
+                # (a line read out of order); the quote is after the last «.
+                if "«" in inner:
+                    cut = inner.rfind("«")
+                    q_begin = m.start(1) + cut
+                    inner = inner[cut + 1:]
+                context = raw[start:q_begin]
+                start = m.end()
+                if re.search("[ء-يﷺ]", context):
+                    q_marked = bool(_HADITH_MARKERS.search(context))
+                    q_quran = bool(_QURAN_SAID.search(context))
+                # else: nothing before it on the line, it is presented like the quote before
+                quote = _LONE_ALIF.sub("", inner.strip(_STRIP))
+                pieces.append((quote, q_marked, q_quran or m.group(0).startswith("﴿")))
             continue
-        text = raw.strip(_STRIP)
+        text = _TRAILING_SOURCE.sub("", raw.strip(_STRIP)).strip(_STRIP)
         if ":" in text and (marked or _QURAN_INTRO.match(text)):
             text = text.rsplit(":", 1)[1]
         text = _QURAN_INTRO.sub("", text.strip(_STRIP))
         text = _HADITH_INTRO.sub("", text).strip(_STRIP)
         if marked:
-            rest = _HADITH_LEAD.sub("", text).strip(_STRIP)
+            # "(رضي الله عنه)"، "(صلى الله عليه وسلم)" in the chain are not words of the hadith
+            bare = _FORMULA_IN_BRACKETS.sub(" ", text)
+            rest = _HADITH_LEAD.sub("", bare).strip(_STRIP)
             if len(rest.split()) >= 2:
                 text = rest
+            elif not rest.split() or rest.split() in (["قال"], ["يقول"], ["أنه", "قال"]):
+                # only the chain ("عن أبي هريرة (رضي الله عنه) أن النبي ﷺ قال:"),
+                # the hadith is on the next line
+                text = ""
+        text = _LONE_ALIF.sub("", text)
         if text:
             pieces.append((text, marked, as_quran))
         elif marked or as_quran:
@@ -254,8 +316,27 @@ def _fix_misread_intro(post: str) -> str:
     the ayah. A word one letter away from تعالى in that place is restored."""
     def fix(m):
         word = normalize(m.group(2))
-        return m.group(1) + "تعالى" if Levenshtein.distance(word, "تعالي") <= 1 else m.group(0)
+        for right in ("تعالى", "سبحانه"):
+            if Levenshtein.distance(word, normalize(right)) <= 1:
+                return m.group(1) + right
+        return m.group(0)
     return _INTRO_WORD.sub(fix, post)
+
+
+# The ligature ﷺ is often read by the OCR as a short run of letters ("كل"،
+# "ل4"، "كَلَةٌ"، "كَمٌ") and "وسلم" as "وسل": the hadith then loses its intro.
+_SAW_MISREAD = re.compile(
+    r"((?:^|\s)(?:قال|رسول\s+الل[هة]?|النبي|الني|الي))\s+(?!(?:له|لهم|لها|لي|لنا|لكم|لك|كلا|كلها|كله)\s*[:«\"(])"
+    r"[كل](?:[ً-ْ]*[ء-ي0-9]){0,2}[ً-ْ]*(?=\s*[:«\"(])"
+)
+_SALLAM_MISREAD = re.compile(r"(?<=الله عليه )وس[\u0621-\u064A]{0,2}(?![\u0621-\u064A])")
+_NABI_MISREAD = re.compile(r"(?<![\u0621-\u064A])((?:قال|عن|أن|ان) )ال[ن]?ي(?=\s)")
+
+
+def _fix_misread_salutation(post: str) -> str:
+    post = _SALLAM_MISREAD.sub("وسلم", post)
+    post = _NABI_MISREAD.sub(r"\1النبي", post)
+    return _SAW_MISREAD.sub(r"\1 ﷺ", post)
 
 
 # A hadith qudsi says so in its text: "قال الله عز وجل"، "يقول ربكم". A mere
@@ -271,13 +352,45 @@ def _shares_most_words(text: str, ayah: str) -> bool:
     return len(words) >= 2 and sum(w in ayah_words for w in words) >= 0.6 * len(words)
 
 
+# A piece made only of these words is an intro, never the text of a hadith
+# ("قال رسول الله صلى الله عليه وسلم" cut off from its quote).
+_INTRO_ONLY = _FORMULA | set("قال يقول رسول النبي عن ان انه وقال".split())
+
+_PERSIAN = str.maketrans({"ی": "ي", "ې": "ي", "ک": "ك", "ہ": "ه", "ۃ": "ة", "ە": "ه"})
+_MARKS = "[ً-ْ]*"
+_ALLAH_MARKED = re.compile("ا" + _MARKS + "ل" + _MARKS + "ل" + _MARKS + "ه")
+_SALLA = re.compile(r"\bصل[يى]?(?=\s+الله\s+عليه)")
+_WA_SALLAM = re.compile(r"(?<=عليه)\s+و\s+سلم")
+_NEXT_INTRO = re.compile(
+    r"([»﴾”\"]|\(\s*متفق\s+عليه\s*\)|(?<![ء-ي])(?:رواه|أخرجه)\s+(?:الإمام\s+)?[ء-ي]+(?:\s+و[ء-ي]+)?)"
+    r"(?:[^\S\n]|[^\w\s«»﴿﴾\"“”()])+(?=و?(?:قال|يقول|عن)\s)"
+)
+
+
+def _canon(post: str) -> str:
+    """Typing variants that do not change what a post says but would hide
+    its intros: Persian letters (ی ک ہ), tatweel (عـن), "اللّه" with a shadda,
+    "صلي/صل الله عليه وسلم" and "و سلم". The diacritics of a quote are kept
+    (the Uthmani check needs them)."""
+    post = post.translate(_PERSIAN).replace("ـ", "")
+    post = _ALLAH_MARKED.sub(lambda m: "الله" if m.group(0) != "الله" else m.group(0), post)
+    post = _SALLA.sub("صلى", post)
+    post = _WA_SALLAM.sub(" وسلم", post)
+    # Two items run together on one line: "… (متفق عليه) قال تعالى: ﴿…﴾",
+    # "«…» رواه مسلم وقال ﷺ: «…»". A new intro after a closed quote or a
+    # source starts a new line.
+    return _NEXT_INTRO.sub(lambda m: m.group(1) + "\n", post)
+
+
 def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
             uncertain: set[str] | frozenset = frozenset()) -> Report:
     """Check every ayah and hadith in a post. For text read from an image,
     `uncertain` holds the (normalized) words the OCR was not sure of."""
     uncertain = frozenset(uncertain) if from_image else frozenset()
+    post = _canon(post)
     if from_image:
         post = _fix_misread_intro(post)
+        post = _fix_misread_salutation(post)
     q_idx, h_idx = quran_index(), hadith_index()
     report = Report()
     pending_marker = False  # "قال رسول الله ﷺ:" on its own line marks the next piece
@@ -293,7 +406,7 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
         words = normalize(text).split()
 
         # A bare intro line like "قال ﷺ" -> the next piece is the hadith.
-        if marked and len(words) <= 4 and _HADITH_MARKERS.search(text):
+        if marked and (len(words) <= 4 and _HADITH_MARKERS.search(text) or set(words) <= _INTRO_ONLY):
             pending_marker = True
             report.segments.append(Segment("text", text))
             continue
@@ -307,7 +420,11 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
             min_ratio = 0.5 if (as_quran and from_image) else QURAN_MIN_RATIO
             if q.status in ("verified", "altered") and q.match_ratio >= min_ratio and (
                     as_quran or q.status == "verified" or q.match_ratio >= QURAN_UNMARKED_RATIO
-                    or q.longest_run >= QURAN_UNMARKED_RUN):
+                    or q.longest_run >= QURAN_UNMARKED_RUN) and not (
+                    # A hadith that quotes part of an ayah ("لن يلج النار أحد صلى
+                    # قبل طلوع الشمس وقبل غروبها") is the hadith, not a changed ayah.
+                    marked and not as_quran and q.status != "verified"
+                    and h_idx.search(text, by_meaning=True, ocr=from_image).status == "found"):
                 seg = Segment("quran", text, quran=q, from_image=from_image, uncertain=uncertain)
                 # An ayah presented as the Prophet's ﷺ saying ("قال رسول الله ﷺ: إن الله مع الصابرين")
                 if marked and not as_quran and q.status == "verified":
@@ -317,7 +434,7 @@ def analyze(post: str, use_dorar: bool = True, from_image: bool = False,
 
         # Search by meaning only for text attributed to the Prophet ﷺ: ordinary
         # sentences must not be matched to a hadith just because they are similar.
-        h = h_idx.search(text, by_meaning=marked)
+        h = h_idx.search(text, by_meaning=marked, ocr=from_image)
         # Text NOT attributed to the Prophet ﷺ is shown as a hadith only when
         # its exact wording is in the books: a dua like "اللهم اجعلنا من أهلها"
         # merely resembles some hadith and must not get a hadith's grading.

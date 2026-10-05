@@ -27,6 +27,8 @@ _LETTER_MAP = str.maketrans({
     "ى": "ي", "ئ": "ي",
     "ؤ": "و",
     "ة": "ه",
+    # Persian/Urdu keyboards type these for the Arabic letters
+    "ی": "ي", "ې": "ي", "ک": "ك", "ہ": "ه", "ۃ": "ه", "ە": "ه",
 })
 
 

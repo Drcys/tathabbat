@@ -1,0 +1,250 @@
+{
+ "text": {
+  "posts": 600,
+  "posts_fully_correct": 586,
+  "items": {
+   "correct": 4492,
+   "cautious": 14,
+   "extra_cards": 0
+  },
+  "by_kind": {
+   "fake_quran": {
+    "correct": 444
+   },
+   "ayah_tampered": {
+    "correct": 461
+   },
+   "fabricated": {
+    "correct": 461
+   },
+   "ayah_ok": {
+    "correct": 914
+   },
+   "hadith_sahih": {
+    "correct": 904
+   },
+   "hadith_as_quran": {
+    "cautious": 14,
+    "correct": 444
+   },
+   "quran_as_hadith": {
+    "correct": 449
+   },
+   "hadith_weak": {
+    "correct": 415
+   }
+  },
+  "failures": []
+ },
+ "images": {
+  "images": 400,
+  "items": {
+   "missed": 133,
+   "correct": 506,
+   "extra_cards": 61,
+   "vision": 367,
+   "cautious": 195,
+   "WRONG": 6
+  },
+  "by_font": {
+   "Amiri": {
+    "missed": 16,
+    "correct": 36,
+    "cautious": 21,
+    "vision": 2
+   },
+   "ArefRuqaa": {
+    "vision": 79
+   },
+   "Blaka": {
+    "vision": 58,
+    "cautious": 5,
+    "missed": 12
+   },
+   "Cairo": {
+    "correct": 53,
+    "cautious": 21,
+    "missed": 10
+   },
+   "ElMessiri": {
+    "correct": 46,
+    "cautious": 20,
+    "missed": 4
+   },
+   "Gulzar": {
+    "vision": 71
+   },
+   "Katibeh": {
+    "missed": 11,
+    "correct": 45,
+    "cautious": 21,
+    "WRONG": 1
+   },
+   "Lalezar": {
+    "missed": 17,
+    "correct": 32,
+    "cautious": 22,
+    "WRONG": 1,
+    "vision": 3
+   },
+   "Lateef": {
+    "vision": 11,
+    "correct": 38,
+    "missed": 9,
+    "cautious": 15,
+    "WRONG": 1
+   },
+   "MarkaziText": {
+    "correct": 49,
+    "missed": 18,
+    "cautious": 13,
+    "vision": 4
+   },
+   "NotoKufiArabic": {
+    "missed": 10,
+    "WRONG": 1,
+    "correct": 50,
+    "cautious": 12
+   },
+   "NotoNaskhArabic": {
+    "correct": 54,
+    "cautious": 12,
+    "vision": 3,
+    "missed": 4
+   },
+   "Rakkas": {
+    "vision": 67,
+    "WRONG": 1,
+    "missed": 6,
+    "cautious": 1
+   },
+   "ReemKufi": {
+    "vision": 67,
+    "correct": 1,
+    "missed": 10,
+    "cautious": 2
+   },
+   "ScheherazadeNew": {
+    "correct": 55,
+    "cautious": 9,
+    "missed": 2,
+    "vision": 2,
+    "WRONG": 1
+   },
+   "Tajawal": {
+    "correct": 47,
+    "cautious": 21,
+    "missed": 4
+   }
+  },
+  "by_look": {
+   "screenshot": {
+    "missed": 21,
+    "correct": 111,
+    "vision": 67,
+    "WRONG": 3,
+    "cautious": 46
+   },
+   "dark": {
+    "vision": 76,
+    "missed": 30,
+    "correct": 107,
+    "cautious": 35
+   },
+   "bubble": {
+    "vision": 66,
+    "missed": 30,
+    "correct": 111,
+    "cautious": 35,
+    "WRONG": 2
+   },
+   "photo": {
+    "correct": 87,
+    "vision": 87,
+    "missed": 25,
+    "cautious": 38,
+    "WRONG": 1
+   },
+   "small_jpeg": {
+    "correct": 90,
+    "cautious": 41,
+    "missed": 27,
+    "vision": 71
+   }
+  },
+  "wrong": [
+   [
+    "NotoKufiArabic",
+    "screenshot",
+    "ayah_ok",
+    "WRONG",
+    "﴿بها واستيقنتها أنفسهم ظلما وعلوا فانظر كيف كان عاقبة المفسدين﴾",
+    [
+     "quran",
+     "bad"
+    ],
+    "جمعة مباركة\nيقول الله عز وجل: وَلَقَدَ عَلِمَّنَا الْمُسْتَقَدِمِينَ الناس وَلَقَدَ عَلِمَنَا بها واستيقنتها أنفسهم ظلما وعلوا فانظر كيف كان عاقبة المفسدين>\nقال كَثمٌ: «الدين المعاملة»\nرواه الترمذي انشرها تؤجر"
+   ],
+   [
+    "Lateef",
+    "screenshot",
+    "hadith_sahih",
+    "WRONG",
+    "عن النبي ﷺ أنه قال: لا يصلي أحدكم في الثوب الواحد ليس على عاتقيه منه شىء",
+    [
+     "hadith",
+     "bad"
+    ],
+    "تذكير جميل\nقال الله تعالى في كتابه الكريم: وما نقموا منهم إلا أن يؤمنوا بالله العزيز الحميد»\nقال رسول الله كل وإن جعل الله عليكم الليل سرمدا إلى يوم القيامة من إله غير\nعن النبي أنه قال: لا يصلي أحدكم في الثوب الواحد ليس على عاتقيه منه شىء لا تجعلها تقف عندك"
+   ],
+   [
+    "Lalezar",
+    "bubble",
+    "ayah_ok",
+    "WRONG",
+    "قال تعالى: ﴿ألم تعلم أن الله له ملك السماوات والأرض وما لكم من﴾",
+    [
+     "quran",
+     "bad"
+    ],
+    "وقال عليه الصلاة والسلام: («هريرة حتى يقولوا هذا الله»\nقال تعالى: ﴿ألم تعلم أن الله له ملك السماوات والأرض وما لكم من اللبم صل وسلم على نبينا محمد"
+   ],
+   [
+    "Rakkas",
+    "screenshot",
+    "ayah_ok",
+    "WRONG",
+    "قال الله تعالى: ﴿فإذا سويته ونفخت فيه من روحي فقعوا﴾",
+    [
+     "quran",
+     "bad"
+    ],
+    "قال الله تعالى: (فإذا سويته وففون فيه روعي فقعوا)\nقال رسول الله مل الله عليه وسلم: \"من مات اللو ي رعو من دون الله ثرا دل النار\" (ستفى عليه)\n(ربك له ما بين أيرينا وما ضلفنا وما بين ذلك وا تقين وما كان)"
+   ],
+   [
+    "Katibeh",
+    "bubble",
+    "ayah_ok",
+    "WRONG",
+    "قال الله تعالى: ﴿وما آتيتم من ربا ليربو في أموال﴾",
+    [
+     "quran",
+     "bad"
+    ],
+    "جمعة مباركة لا\nقال الله تعالى: (وما آتيتم من ربا ليربو في أموال ايان ذلك نَجَزِي الْمُحيْين\nقال رسول الله «النظافة من الإيمان»\nرواه العرمذي\nلا تجعلها تقف عندك"
+   ],
+   [
+    "ScheherazadeNew",
+    "photo",
+    "hadith_sahih",
+    "WRONG",
+    "قال رسول الله صلى الله عليه وسلم: \"يشرك به شيئا دخل الجنة ومن لقيه يشرك به دخل\"",
+    [
+     "hadith",
+     "bad"
+    ],
+    "قال تعالى: «إِنَ هي والدعاء مَوْتَثنَا الأول وما نَحْنْ بِمَُشَرِينَ»\nقال رسول الله صلى الله عليه وسلم يشرك به شيئا دخل الجنة ومن لقيه يشرك به دخل\" اللهم اجعلنا من أهلها"
+   ]
+  ]
+ }
+}

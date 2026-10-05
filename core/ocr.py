@@ -354,17 +354,43 @@ def _tesseract_with_confidence(image_bytes: bytes) -> tuple[str, float, set[str]
             # the original image agree, stop early to stay fast.
             if n == 0 and len(readings[0].split()) >= 5 and fuzz.ratio(*readings) >= 95:
                 break
-    return _clean(_join_lines(best)), best_conf, best_unsure
+    return _clean(_join_lines(_brackets(best))), best_conf, best_unsure
 
 
 def _tesseract(image_bytes: bytes) -> str:
     return _tesseract_with_confidence(image_bytes)[0]
 
 
+_OPEN_AS_HASH = re.compile("(?<!\\S)#(?=[\u0621-\u064A])")
+_CLOSE_AS_DIGIT = re.compile("(?<=[\u0621-\u064A]{3})[4#](?=\\s|$)", re.M)
+
+
+def _brackets(text: str) -> str:
+    """The Quran brackets are often read as "#…" and "…4" or "…#": put them
+    back, so the end of the ayah ends its line and the intro is recognised."""
+    return _CLOSE_AS_DIGIT.sub("﴾", _OPEN_AS_HASH.sub("﴿", text))
+
+
+_NEW_ITEM = re.compile(r"^(?:و?(?:قال|يقول|عن)\s|رواه\s|متفق عليه|[«﴿])")
+
+
 def _join_lines(text: str) -> str:
-    """Tesseract breaks long lines; keep blank lines as paragraph breaks."""
-    paragraphs = re.split(r"\n\s*\n", text)
-    return "\n".join(" ".join(p.split()) for p in paragraphs if p.strip())
+    """Tesseract breaks long lines; keep blank lines as paragraph breaks.
+    Inside a paragraph, a line is joined to the one before unless that one
+    closed a sentence, or this one starts a new item ("قال تعالى…"، "عن أبي
+    هريرة…"، "رواه…") outside an open quote: posts often have no blank lines,
+    and items run together would hide each other's intros."""
+    out = []
+    for para in re.split(r"\n\s*\n", text):
+        lines = [" ".join(line.split()) for line in para.splitlines() if line.strip()]
+        for i, line in enumerate(lines):
+            prev = out[-1] if out and i else None
+            open_quote = prev is not None and prev.count("«") + prev.count("﴿") > prev.count("»") + prev.count("﴾")
+            if prev is not None and not _LINE_END.search(prev) and (open_quote or not _NEW_ITEM.match(line)):
+                out[-1] = prev + " " + line
+            else:
+                out.append(line)
+    return "\n".join(out)
 
 
 _KEEP = set("«»\"“”﴿﴾():.،؟!ﷺ")

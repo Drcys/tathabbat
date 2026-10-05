@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rapidfuzz import fuzz
+from rapidfuzz.distance import Levenshtein
 
 from .normalize import normalize
 
@@ -255,9 +256,20 @@ class HadithIndex:
                 scores[i] += idf * tf * (k1 + 1) / denom
         return [i for i, _ in scores.most_common(TOP_CANDIDATES)]
 
-    def search(self, text: str, top: int = 3, by_meaning: bool = True) -> HadithResult:
+    def search(self, text: str, top: int = 3, by_meaning: bool = True, ocr: bool = False) -> HadithResult:
+        """`ocr`: the text was read from an image, so a word one letter away
+        from a word of the hadith ("تدركيم" for "تدركهم") still counts."""
         q = normalize(text)
         qw = q.split()
+        if ocr:
+            # two words the image reading glued together ("غيربينة")
+            split = []
+            for w in qw:
+                cut = next((i for i in range(2, len(w) - 1) if w not in self.idf
+                            and w[:i] in self.idf and w[i:] in self.idf), None)
+                split += [w[:cut], w[cut:]] if cut else [w]
+            qw = split
+            q = " ".join(qw)
         if len(qw) < MIN_WORDS:
             return HadithResult(status="too_short", input_text=text)
 
@@ -272,7 +284,9 @@ class HadithIndex:
             doc_bare = {_bare(d) for d in doc_words}
             covered = sum(wt for w, wt in weights.items()
                           if w in doc_words or _bare(w) in doc_bare
-                          or any(fuzz.ratio(w, d) >= 85 for d in doc_words if abs(len(d) - len(w)) <= 2))
+                          or any(fuzz.ratio(w, d) >= 85 for d in doc_words if abs(len(d) - len(w)) <= 2)
+                          or (ocr and len(w) >= 4 and any(
+                              Levenshtein.distance(w, d) <= 1 for d in doc_words if abs(len(d) - len(w)) <= 1)))
             coverage = covered / total
             score = fuzz.partial_ratio(q, self.docs[i]["norm"])
             ranked.append((round(score), round(coverage, 2), i))

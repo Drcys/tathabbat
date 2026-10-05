@@ -110,7 +110,12 @@ def classify(expected: list[str], verdicts: list[str]) -> str:
     if not verdicts:
         return "missed"           # nothing recognised: no claim was made
     if len(verdicts) != len(expected):
-        return "wrong"
+        # A line read out of order can split one text into two cards. That is
+        # a wrong claim only if a card says the opposite of the truth.
+        opposite = {"ok": "bad", "bad": "ok", "warn": None}
+        if any(opposite[e] in verdicts for e in expected):
+            return "wrong"
+        return "cautious"
     out = "correct"
     for e, v in zip(expected, verdicts):
         if e == v:
