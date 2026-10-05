@@ -204,3 +204,14 @@ def test_a_used_up_or_missing_model_moves_on_and_a_wrong_key_stops():
 
     with pytest.raises(RuntimeError, match="API_KEY_INVALID"):
         _try_models(["a", "b", "c", "d"], call, wait=0)
+
+
+def test_used_up_quota_is_reported_even_if_the_last_model_is_missing():
+    import pytest
+    from core.ocr import _try_models
+
+    def call(model):
+        raise RuntimeError({"a": "429 RESOURCE_EXHAUSTED", "b": "404 NOT_FOUND"}[model])
+
+    with pytest.raises(RuntimeError, match="RESOURCE_EXHAUSTED"):
+        _try_models(["a", "b"], call, wait=0)

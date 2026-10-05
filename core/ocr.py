@@ -123,17 +123,28 @@ def _gemini(image_bytes: bytes, mime: str, api_key: str) -> str:
     from google.genai import types
 
     data, mime = _for_vision(image_bytes, mime)
-    client = genai.Client(api_key=api_key)
+    # Several keys may be given, separated by commas: each key (from its own
+    # Google project) has its own free daily quota, used in turn.
+    keys = [k.strip() for k in api_key.split(",") if k.strip()]
+    error = None
+    for key in keys:
+        client = genai.Client(api_key=key)
 
-    def call(model):
-        resp = client.models.generate_content(
-            model=model,
-            contents=[types.Part.from_bytes(data=data, mime_type=mime), _PROMPT],
-            config=types.GenerateContentConfig(temperature=0),
-        )
-        return resp.text or ""
+        def call(model, client=client):
+            resp = client.models.generate_content(
+                model=model,
+                contents=[types.Part.from_bytes(data=data, mime_type=mime), _PROMPT],
+                config=types.GenerateContentConfig(temperature=0),
+            )
+            return resp.text or ""
 
-    return _try_models(GEMINI_MODELS, call)
+        try:
+            return _try_models(GEMINI_MODELS, call)
+        except Exception as exc:
+            error = exc
+            if not _is_quota(exc):
+                raise
+    raise error
 
 
 def _try_models(models, call, wait: float = 2.0) -> str:
@@ -142,20 +153,23 @@ def _try_models(models, call, wait: float = 2.0) -> str:
     used-up model moves on to the next one. A wrong key stops at once."""
     import time
 
-    error = None
+    error = quota = None
     for model in models:
         for attempt in (1, 2):
             try:
                 return call(model)
             except Exception as exc:
                 error = exc
+                if _is_quota(exc):
+                    quota = exc
                 if _is_busy(exc) and attempt == 1:
                     time.sleep(wait)
                     continue
                 if _is_quota(exc) or _is_busy(exc) or _is_missing(exc):
                     break
                 raise
-    raise error
+    # A used-up quota says more than the retired model tried after it.
+    raise quota or error
 
 
 def _is_quota(exc: Exception) -> bool:
