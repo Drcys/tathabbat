@@ -179,3 +179,28 @@ def test_quota_problem_is_reported_not_hidden(monkeypatch):
     monkeypatch.setattr(ocr, "_gemini", lambda *a: (_ for _ in ()).throw(RuntimeError("429 quota exceeded")))
     r = ocr.read_image(CALLIGRAPHY.read_bytes(), "image/png", "k")
     assert r.engine == "tesseract-low" and r.vision_problem == "quota"
+
+
+def test_a_busy_vision_model_is_retried_then_the_next_model_is_used():
+    from core.ocr import _try_models
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        if model == "a":
+            raise RuntimeError("503 UNAVAILABLE. The model is overloaded.")
+        return "نص"
+
+    assert _try_models(["a", "b"], call, wait=0) == "نص"
+    assert calls == ["a", "a", "b"]
+
+
+def test_a_used_up_or_missing_model_moves_on_and_a_wrong_key_stops():
+    import pytest
+    from core.ocr import _try_models
+
+    def call(model):
+        raise RuntimeError({"a": "429 RESOURCE_EXHAUSTED", "b": "404 NOT_FOUND", "c": "400 API_KEY_INVALID"}[model])
+
+    with pytest.raises(RuntimeError, match="API_KEY_INVALID"):
+        _try_models(["a", "b", "c", "d"], call, wait=0)

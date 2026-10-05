@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import sys
 import shutil
 import subprocess
 import tempfile
@@ -95,8 +96,8 @@ def _claude(image_bytes: bytes, mime: str, api_key: str) -> str:
 
     data, mime = _for_vision(image_bytes, mime)
     payload = base64.b64encode(data).decode()
-    last = None
-    for model in CLAUDE_MODELS:
+
+    def call(model):
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
@@ -111,13 +112,10 @@ def _claude(image_bytes: bytes, mime: str, api_key: str) -> str:
             },
             timeout=60,
         )
-        if resp.status_code == 404:          # model name not available: try the next
-            last = resp
-            continue
         resp.raise_for_status()
         return "".join(b.get("text", "") for b in resp.json().get("content", []) if b.get("type") == "text")
-    last.raise_for_status()
-    return ""
+
+    return _try_models(CLAUDE_MODELS, call)
 
 
 def _gemini(image_bytes: bytes, mime: str, api_key: str) -> str:
@@ -126,27 +124,54 @@ def _gemini(image_bytes: bytes, mime: str, api_key: str) -> str:
 
     data, mime = _for_vision(image_bytes, mime)
     client = genai.Client(api_key=api_key)
+
+    def call(model):
+        resp = client.models.generate_content(
+            model=model,
+            contents=[types.Part.from_bytes(data=data, mime_type=mime), _PROMPT],
+            config=types.GenerateContentConfig(temperature=0),
+        )
+        return resp.text or ""
+
+    return _try_models(GEMINI_MODELS, call)
+
+
+def _try_models(models, call, wait: float = 2.0) -> str:
+    """Call each model in turn. A busy model (503 "overloaded", a 500, a
+    timeout) is tried once more after a short wait; a busy, missing or
+    used-up model moves on to the next one. A wrong key stops at once."""
+    import time
+
     error = None
-    for model in GEMINI_MODELS:
-        try:
-            resp = client.models.generate_content(
-                model=model,
-                contents=[types.Part.from_bytes(data=data, mime_type=mime), _PROMPT],
-                config=types.GenerateContentConfig(temperature=0),
-            )
-            return resp.text or ""
-        except Exception as exc:
-            # A missing model or a used-up quota moves on to the next model;
-            # anything else (a wrong key) stops here.
-            if not (_is_quota(exc) or "404" in str(exc) or "not found" in str(exc).lower()):
+    for model in models:
+        for attempt in (1, 2):
+            try:
+                return call(model)
+            except Exception as exc:
+                error = exc
+                if _is_busy(exc) and attempt == 1:
+                    time.sleep(wait)
+                    continue
+                if _is_quota(exc) or _is_busy(exc) or _is_missing(exc):
+                    break
                 raise
-            error = exc
     raise error
 
 
 def _is_quota(exc: Exception) -> bool:
     msg = str(exc).lower()
     return "429" in msg or "resource_exhausted" in msg or "quota" in msg or "rate limit" in msg
+
+
+def _is_busy(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in ("503", "500", "529", "502", "unavailable", "overloaded", "internal", "deadline",
+                                  "timed out", "timeout", "connection"))
+
+
+def _is_missing(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "404" in msg or "not found" in msg or "not supported" in msg
 
 
 def _arabic_words(text: str) -> int:
@@ -528,6 +553,7 @@ def read_image(image_bytes: bytes, mime: str = "image/png", gemini_key: str | No
             return Reading(text, engine)
         except Exception as exc:  # fall through to the next engine
             errors.append(f"{engine}: {exc}")
+            print(f"[tathabbat] vision model {engine} failed: {exc}", file=sys.stderr)
 
     if local and local.text:
         if any(e in engines for e in VISION_ENGINES):
